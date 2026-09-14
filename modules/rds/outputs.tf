@@ -1,19 +1,16 @@
 output "hostname" {
-  description = "RDS instance hostname"
+  description = "Address the application connects to"
   value       = aws_db_instance.main.address
-  sensitive   = true
 }
 
 output "endpoint" {
-  description = "RDS instance hostname"
+  description = "Address and port, joined as host:port"
   value       = aws_db_instance.main.endpoint
-  sensitive   = true
 }
 
 output "database-name" {
-  description = "RDS instance hostname"
+  description = "Name of the database created on the instance"
   value       = aws_db_instance.main.db_name
-  sensitive   = true
 }
 
 output "master_user_secret_arn" {
