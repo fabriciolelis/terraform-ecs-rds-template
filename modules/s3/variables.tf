@@ -11,7 +11,7 @@ variable "zone_id" {
 }
 
 variable "tsl_certificate_arn" {
-  description = "The ARN of the certificate that the ALB uses for https"
+  description = "ARN of the ACM certificate CloudFront serves, which must live in us-east-1"
 }
 
 variable "api_endpoint" {

@@ -70,17 +70,17 @@ variable "tsl_certificatecloudfront" {
 }
 
 variable "app_bucket" {
-  description = "Bucket used by application previously created"
+  description = "Bucket used by the application, created outside this stack"
   default     = "virtual-promoter-test"
 }
 
 variable "admin_front_domain" {
-  description = "Bucket name used to host admin frontend"
+  description = "Domain name that serves the admin frontend"
   default     = "bucket-name.com"
 }
 
 variable "admin_front_bucket" {
-  description = "Domain name to host admin frontend"
+  description = "Bucket name that stores the admin frontend"
   default     = "bucket-name.com"
 }
 
