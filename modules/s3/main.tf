@@ -100,20 +100,20 @@ resource "aws_cloudfront_distribution" "root_s3_distribution" {
 
   aliases = [var.domain_name]
 
-  # A REST origin answers a missing key with 403, not 404, so both map to the
-  # error page. The website endpoint this replaced only ever returned 404.
+  # Client-side routing: an unmatched path returns the app shell so the router
+  # can resolve it. A REST origin reports a missing key as 403, not 404.
   custom_error_response {
     error_caching_min_ttl = 0
     error_code            = 403
     response_code         = 200
-    response_page_path    = "/404.html"
+    response_page_path    = "/index.html"
   }
 
   custom_error_response {
     error_caching_min_ttl = 0
     error_code            = 404
     response_code         = 200
-    response_page_path    = "/404.html"
+    response_page_path    = "/index.html"
   }
 
   default_cache_behavior {
@@ -121,6 +121,17 @@ resource "aws_cloudfront_distribution" "root_s3_distribution" {
     cached_methods         = ["GET", "HEAD"]
     target_origin_id       = "s3-${var.bucket_name}"
     cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
+    viewer_protocol_policy = "redirect-to-https"
+  }
+
+  # The shell must never be cached at the edge: a stale copy points at asset
+  # filenames the next deploy has already replaced.
+  ordered_cache_behavior {
+    path_pattern           = "/index.html"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "s3-${var.bucket_name}"
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_disabled.id
     viewer_protocol_policy = "redirect-to-https"
   }
 
