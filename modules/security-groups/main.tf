@@ -1,21 +1,19 @@
+data "aws_ec2_managed_prefix_list" "cloudfront" {
+  name = "com.amazonaws.global.cloudfront.origin-facing"
+}
+
 resource "aws_security_group" "alb" {
   name   = "${var.name}-sg-alb-${var.environment}"
   vpc_id = var.vpc_id
 
+  # CloudFront reaches the origin over HTTPS only, so port 80 stays shut. One
+  # rule, because a prefix list spends its max-entries count against the
+  # per-security-group rule quota.
   ingress {
-    protocol         = "tcp"
-    from_port        = 80
-    to_port          = 80
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-
-  ingress {
-    protocol         = "tcp"
-    from_port        = 443
-    to_port          = 443
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
+    protocol        = "tcp"
+    from_port       = 443
+    to_port         = 443
+    prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront.id]
   }
 
   egress {
@@ -35,11 +33,10 @@ resource "aws_security_group" "ecs_task" {
   vpc_id = var.vpc_id
 
   ingress {
-    protocol         = "tcp"
-    from_port        = var.container_port
-    to_port          = var.container_port
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
+    protocol        = "tcp"
+    from_port       = var.container_port
+    to_port         = var.container_port
+    security_groups = [aws_security_group.alb.id]
   }
 
   egress {

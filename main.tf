@@ -2,6 +2,11 @@ provider "aws" {
   region = var.region
 }
 
+resource "random_password" "origin_verify" {
+  length  = 48
+  special = false
+}
+
 module "vpc" {
   source             = "./modules/vpc"
   name               = var.name
@@ -28,25 +33,26 @@ module "ecr" {
 
 
 module "alb" {
-  source              = "./modules/alb"
-  name                = var.name
-  vpc_id              = module.vpc.id
-  subnets             = module.vpc.public_subnets
-  zone_id             = var.zone_id
-  environment         = var.environment
-  alb_security_groups = [module.security_groups.alb]
-  alb_tls_cert_arn    = var.tsl_certificate_arn
-  health_check_path   = var.health_check_path
+  source               = "./modules/alb"
+  name                 = var.name
+  vpc_id               = module.vpc.id
+  subnets              = module.vpc.public_subnets
+  environment          = var.environment
+  alb_security_groups  = [module.security_groups.alb]
+  alb_tls_cert_arn     = var.tsl_certificate_arn
+  health_check_path    = var.health_check_path
+  origin_verify_secret = random_password.origin_verify.result
 }
 
 
 module "s3-admin-front" {
-  source              = "./modules/s3"
-  zone_id             = var.zone_id
-  bucket_name         = var.admin_front_bucket
-  domain_name         = var.admin_front_domain
-  api_endpoint        = module.alb.alb_dns_name
-  tsl_certificate_arn = var.tsl_certificatecloudfront
+  source               = "./modules/s3"
+  zone_id              = var.zone_id
+  bucket_name          = var.admin_front_bucket
+  domain_name          = var.admin_front_domain
+  api_endpoint         = module.alb.alb_dns_name
+  tsl_certificate_arn  = var.tsl_certificatecloudfront
+  origin_verify_secret = random_password.origin_verify.result
 }
 
 module "mySQL-rds" {

@@ -86,6 +86,11 @@ resource "aws_cloudfront_distribution" "root_s3_distribution" {
     domain_name = var.api_endpoint
     origin_id   = "apigw"
 
+    custom_header {
+      name  = "X-Origin-Verify"
+      value = var.origin_verify_secret
+    }
+
     custom_origin_config {
       http_port              = 80
       https_port             = 443

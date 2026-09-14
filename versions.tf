@@ -6,6 +6,11 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
+
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 
   # Partial config: bucket, key and region are supplied by -backend-config at

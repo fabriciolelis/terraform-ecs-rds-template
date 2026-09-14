@@ -17,3 +17,9 @@ variable "tsl_certificate_arn" {
 variable "api_endpoint" {
   description = "The dns to api endpoint"
 }
+
+variable "origin_verify_secret" {
+  description = "Shared secret sent to the API origin as X-Origin-Verify"
+  type        = string
+  sensitive   = true
+}
