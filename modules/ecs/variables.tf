@@ -55,3 +55,15 @@ variable "container_secrets" {
 variable "container_secrets_arns" {
   description = "ARN for secrets"
 }
+
+variable "health_check_grace_period_seconds" {
+  description = "How long the load balancer ignores health checks after a task starts, so a slow boot is not mistaken for a failure"
+  type        = number
+  default     = 60
+}
+
+variable "app_bucket" {
+  description = "S3 bucket the application reads and writes. Empty grants the task no bucket access"
+  type        = string
+  default     = ""
+}
