@@ -43,7 +43,7 @@ resource "aws_db_instance" "main" {
   engine                 = "mysql"
   engine_version         = "8.0.23"
   instance_class         = "db.t2.micro"
-  name                   = "${var.name}db"
+  db_name                = "${var.name}db"
   username               = local.db_creds.username
   password               = local.db_creds.password
   parameter_group_name   = aws_db_parameter_group.main.name
