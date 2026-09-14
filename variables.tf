@@ -90,12 +90,6 @@ variable "zone_id" {
 }
 
 
-variable "database_secret_arn" {
-  description = "Secret ARN from database admin and pasword previously created"
-  default     = "arn:aws:secretsmanager:us-east-2:111122223333:secret:Database"
-}
-
-
 variable "secrets_arn" {
   description = "Secret ARN from Twillio, Watson, Okta and AWS Credentials previously created"
   default = ["arn:aws:secretsmanager:us-east-2:111122223333:secret:SecretName"

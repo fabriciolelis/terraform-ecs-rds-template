@@ -53,7 +53,6 @@ module "mySQL-rds" {
   source              = "./modules/rds"
   name                = var.name
   environment         = var.environment
-  database_secret_arn = var.database_secret_arn
   subnets             = module.vpc.private_subnets
   rds_security_groups = [module.security_groups.rds_sg]
 }
@@ -88,11 +87,15 @@ module "ecs" {
     {
       name  = "DATABASE_NAME",
       value = module.mySQL-rds.database-name
+    },
+    {
+      name  = "DATABASE_SECRET_ARN",
+      value = module.mySQL-rds.master_user_secret_arn
     }
   ]
   container_secrets      = var.secrets_values
   aws_ecr_repository_url = module.ecr.aws_ecr_repository_url
-  container_secrets_arns = concat(var.secrets_arn, [var.database_secret_arn])
+  container_secrets_arns = concat(var.secrets_arn, [module.mySQL-rds.master_user_secret_arn])
   depends_on = [
     module.mySQL-rds
   ]

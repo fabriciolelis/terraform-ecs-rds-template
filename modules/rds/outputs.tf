@@ -16,3 +16,7 @@ output "database-name" {
   sensitive   = true
 }
 
+output "master_user_secret_arn" {
+  description = "ARN of the RDS-managed secret holding the master credentials"
+  value       = aws_db_instance.main.master_user_secret[0].secret_arn
+}
