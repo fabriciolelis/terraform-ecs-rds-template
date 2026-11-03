@@ -98,6 +98,12 @@ variable "skip_final_snapshot" {
   default     = false
 }
 
+variable "storage_encrypted" {
+  description = "Encrypt storage at rest. Changing it replaces the instance, so an existing unencrypted database sets false until it is migrated"
+  type        = bool
+  default     = true
+}
+
 variable "kms_key_id" {
   description = "Customer-managed KMS key for storage encryption. Empty uses the AWS-managed RDS key"
   type        = string

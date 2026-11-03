@@ -82,6 +82,9 @@ These must exist before the first apply:
 
 - A Route 53 public hosted zone for the frontend domain (`zone_id`)
 - An ACM certificate in the stack's region for the ALB (`tsl_certificate_arn`)
+  that covers `admin_front_domain`. CloudFront forwards the viewer's `Host`
+  header to the ALB and validates the origin certificate against it, not
+  against the ALB's own DNS name
 - An ACM certificate **in `us-east-1`** for CloudFront
   (`tsl_certificatecloudfront`) — CloudFront accepts certificates from no
   other region
@@ -138,13 +141,50 @@ terraform init -backend=false && terraform validate
 | `zone_id` | Route 53 hosted zone for the frontend domain | placeholder |
 | `admin_front_domain` | Domain name that serves the admin frontend | placeholder |
 | `admin_front_bucket` | Bucket name that stores the admin frontend | placeholder |
-| `app_bucket` | Bucket the application reads and writes; empty grants no access | placeholder |
+| `app_bucket` | Bucket the application reads and writes; empty grants no access | `""` |
 | `secrets_arn` | Secret ARNs the task is allowed to read | placeholder |
 | `secrets_values` | Secrets injected as environment variables, as `{name, valueFrom}` | placeholder |
 
 The `rds` module exposes further variables with safe defaults —
 `instance_class`, `backup_retention_period`, `multi_az`, `deletion_protection`,
-`monitoring_interval` and others. Set them on the module call to override.
+`storage_encrypted`, `monitoring_interval` and others. Set them on the module
+call to override.
+
+## Upgrading from the 2021 template
+
+A stack applied from the earlier version of this template needs three things
+handled before its first apply with this one. Run `terraform plan -out=tfplan`
+and read it before applying; it should replace neither the database nor the
+frontend bucket.
+
+**Keep the database from being replaced.** Turning on storage encryption
+replaces an RDS instance, and Terraform deletes the old one using the settings
+already in state: `skip_final_snapshot = true` and no deletion protection. The
+database would be deleted with no final snapshot. Set `storage_encrypted =
+false` on the `mySQL-rds` module call; everything else in this version,
+including deletion protection, backups and the managed password, applies in
+place. Moving to encrypted storage is then a separate, planned migration:
+snapshot, copy the snapshot with encryption, restore, and cut over.
+
+**Keep the frontend bucket.** The bucket used to be named after
+`admin_front_domain` and is now named by `admin_front_bucket`. If the two
+differ, set `admin_front_bucket` to the old domain value, or the plan replaces
+the bucket (and fails, because it is not empty).
+
+**Clear the old security group rules.** Rules moved from inline blocks to
+`aws_vpc_security_group_*_rule` resources. Terraform stops managing the old
+inline rules rather than removing them, so the public `0.0.0.0/0` rules on the
+ALB and task groups would stay, and the new rules would collide with the
+identical ones and fail as duplicates. Revoke every rule on the `alb`,
+`ecs_task` and `rds_sg` groups, then apply straight away; traffic is cut in
+between.
+
+```bash
+for sg in sg-ALB sg-TASK sg-RDS; do
+  aws ec2 revoke-security-group-ingress --group-id "$sg" --ip-permissions "$(aws ec2 describe-security-groups --group-ids "$sg" --query 'SecurityGroups[0].IpPermissions')"
+  aws ec2 revoke-security-group-egress --group-id "$sg" --ip-permissions "$(aws ec2 describe-security-groups --group-ids "$sg" --query 'SecurityGroups[0].IpPermissionsEgress')"
+done
+```
 
 ## Outputs
 
@@ -189,7 +229,15 @@ ingress rule. Adding another rule that references it may need a quota increase.
 
 **A deployment pipeline owns the running revision.** The service ignores
 changes to `task_definition` and `desired_count`, so task definition edits here
-take effect on the pipeline's next deploy, not on `terraform apply`.
+take effect on the pipeline's next deploy, not on `terraform apply`. That
+includes `DATABASE_SECRET_ARN`: it reaches running tasks only if the pipeline
+builds its revision from the Terraform-managed task definition.
+
+**Rotating the origin header causes a short burst of 403s.** Replacing
+`random_password.origin_verify` updates the listener rule in seconds, while the
+distribution takes minutes to deploy the new header. To rotate without errors,
+add the new value to the listener rule's `values` first, let CloudFront deploy
+it, then remove the old one.
 
 **Certificates are regional.** CloudFront reads only from `us-east-1`; the ALB
 reads only from the stack's own region. Two certificates, always.
@@ -200,3 +248,7 @@ Not yet configured: CloudFront and ALB access logs, VPC flow logs, a WAF,
 CloudWatch log group retention, ECR tag immutability and scan-on-push, VPC
 endpoints for ECR and Secrets Manager, and service autoscaling. Three NAT
 gateways run by default, one per AZ.
+
+The application connects with the RDS **master** credentials. It should have
+its own database user with only the privileges it needs, with that user's
+secret passed in place of `DATABASE_SECRET_ARN`.

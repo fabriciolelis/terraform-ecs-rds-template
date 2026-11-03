@@ -103,12 +103,5 @@ module "ecs" {
   aws_ecr_repository_url = module.ecr.aws_ecr_repository_url
   container_secrets_arns = concat(var.secrets_arn, [module.mySQL-rds.master_user_secret_arn])
   app_bucket             = var.app_bucket
-
-  # A service with a load_balancer block cannot be created before its listener
-  # exists, and the target group ARN alone does not express that.
-  depends_on = [
-    module.mySQL-rds,
-    module.alb,
-  ]
 }
 

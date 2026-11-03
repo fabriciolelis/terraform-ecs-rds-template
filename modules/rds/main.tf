@@ -76,8 +76,8 @@ resource "aws_db_instance" "main" {
   allocated_storage     = var.allocated_storage
   max_allocated_storage = var.max_allocated_storage
   storage_type          = "gp3"
-  storage_encrypted     = true
-  kms_key_id            = var.kms_key_id != "" ? var.kms_key_id : null
+  storage_encrypted     = var.storage_encrypted
+  kms_key_id            = var.storage_encrypted && var.kms_key_id != "" ? var.kms_key_id : null
 
   parameter_group_name   = aws_db_parameter_group.main.name
   db_subnet_group_name   = aws_db_subnet_group.rds_subnet_group.name

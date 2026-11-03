@@ -58,7 +58,7 @@ variable "health_check_path" {
 }
 
 variable "tsl_certificate_arn" {
-  description = "The ARN of the certificate that the ALB uses for https"
+  description = "ARN of the ACM certificate the ALB serves, in the stack's region. It must cover admin_front_domain, because CloudFront forwards the viewer's Host header and validates the origin certificate against it"
   default     = "arn:aws:acm:region:account:certificate/certificate_ID"
 }
 
@@ -70,8 +70,9 @@ variable "tsl_certificatecloudfront" {
 }
 
 variable "app_bucket" {
-  description = "Bucket used by the application, created outside this stack"
-  default     = "virtual-promoter-test"
+  description = "Bucket used by the application, created outside this stack. Empty grants the task no bucket access"
+  type        = string
+  default     = ""
 }
 
 variable "admin_front_domain" {
