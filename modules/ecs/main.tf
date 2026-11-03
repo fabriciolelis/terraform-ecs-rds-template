@@ -64,9 +64,63 @@ resource "aws_iam_role_policy_attachment" "ecs-task-execution-role-policy-attach
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-resource "aws_iam_role_policy_attachment" "ecs-task-role-policy-attachment-for-secrets" {
+# The execution role needs the secrets to inject them before the container
+# starts; the task role needs them because the application reads them at
+# runtime through the SDK. Different moments, both required.
+resource "aws_iam_role_policy_attachment" "execution_secrets" {
   role       = aws_iam_role.ecs_task_execution_role.name
   policy_arn = aws_iam_policy.secrets.arn
+}
+
+data "aws_iam_policy_document" "task" {
+  statement {
+    sid       = "ReadSecrets"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = var.container_secrets_arns
+  }
+
+  statement {
+    sid    = "WriteOwnLogs"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["${aws_cloudwatch_log_group.main.arn}:*"]
+  }
+
+  dynamic "statement" {
+    for_each = var.app_bucket != "" ? [var.app_bucket] : []
+
+    content {
+      sid    = "ReadWriteApplicationBucket"
+      effect = "Allow"
+      actions = [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+      ]
+      resources = ["arn:aws:s3:::${statement.value}/*"]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = var.app_bucket != "" ? [var.app_bucket] : []
+
+    content {
+      sid       = "ListApplicationBucket"
+      effect    = "Allow"
+      actions   = ["s3:ListBucket"]
+      resources = ["arn:aws:s3:::${statement.value}"]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "task" {
+  name   = "${var.name}-task-policy-${var.environment}"
+  role   = aws_iam_role.ecs_task_role.id
+  policy = data.aws_iam_policy_document.task.json
 }
 
 resource "aws_ecs_cluster" "main" {
@@ -117,10 +171,16 @@ resource "aws_ecs_service" "main" {
   cluster                            = aws_ecs_cluster.main.id
   task_definition                    = aws_ecs_task_definition.main.arn
   desired_count                      = var.service_desired_count
-  deployment_minimum_healthy_percent = 50
+  deployment_minimum_healthy_percent = 100
   deployment_maximum_percent         = 200
+  health_check_grace_period_seconds  = var.health_check_grace_period_seconds
   launch_type                        = "FARGATE"
   scheduling_strategy                = "REPLICA"
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
 
   network_configuration {
     security_groups  = var.ecs_service_security_groups
@@ -134,6 +194,8 @@ resource "aws_ecs_service" "main" {
     container_port   = var.container_port
   }
 
+  # A deployment pipeline owns the running revision and the replica count, so
+  # changes to the task definition here take effect only on its next deploy.
   lifecycle {
     ignore_changes = [task_definition, desired_count]
   }

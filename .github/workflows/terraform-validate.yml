@@ -1,0 +1,60 @@
+name: Terraform validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: validate (terraform ${{ matrix.terraform }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor that versions.tf allows, and the release we develop against.
+        terraform: ["<1.11.0", "1.17.1"]
+
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_PLUGIN_CACHE_DIR: ${{ github.workspace }}/.terraform-plugin-cache
+
+    steps:
+      # Actions are pinned to commit SHAs; the comment is the release tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ matrix.terraform }}
+          terraform_wrapper: false
+
+      - name: Create plugin cache dir
+        run: mkdir -p "$TF_PLUGIN_CACHE_DIR"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.TF_PLUGIN_CACHE_DIR }}
+          key: ${{ runner.os }}-terraform-plugins-${{ hashFiles('.terraform.lock.hcl') }}
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+      # No backend and no credentials: validate checks the configuration
+      # against provider schemas only. readonly fails the job if the committed
+      # lock file does not cover what versions.tf asks for.
+      - name: terraform init
+        run: terraform init -backend=false -input=false -lockfile=readonly
+
+      - name: terraform validate
+        run: terraform validate -no-color

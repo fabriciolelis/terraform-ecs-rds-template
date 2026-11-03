@@ -57,11 +57,35 @@ resource "aws_alb_listener" "https" {
   port              = 443
   protocol          = "HTTPS"
 
-  ssl_policy      = "ELBSecurityPolicy-2016-08"
+  ssl_policy      = "ELBSecurityPolicy-TLS13-1-2-2021-06"
   certificate_arn = var.alb_tls_cert_arn
 
+  # Anything that reaches the load balancer without CloudFront's shared header
+  # is refused; the listener rule below is the only path to the target group.
   default_action {
-    target_group_arn = aws_alb_target_group.main.id
+    type = "fixed-response"
+
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "Direct origin access is not allowed"
+      status_code  = "403"
+    }
+  }
+}
+
+resource "aws_lb_listener_rule" "from_cloudfront" {
+  listener_arn = aws_alb_listener.https.arn
+  priority     = 100
+
+  action {
     type             = "forward"
+    target_group_arn = aws_alb_target_group.main.arn
+  }
+
+  condition {
+    http_header {
+      http_header_name = "X-Origin-Verify"
+      values           = [var.origin_verify_secret]
+    }
   }
 }

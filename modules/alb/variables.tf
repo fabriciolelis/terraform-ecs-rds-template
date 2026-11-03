@@ -26,6 +26,8 @@ variable "health_check_path" {
   description = "Path to check if the service is healthy, e.g. \"/status\""
 }
 
-variable "zone_id" {
-  description = "Zone ID"
+variable "origin_verify_secret" {
+  description = "Shared secret CloudFront sends as X-Origin-Verify, proving the request came through the distribution"
+  type        = string
+  sensitive   = true
 }

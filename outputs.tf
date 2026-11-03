@@ -21,7 +21,3 @@ output "taskRoleArn" {
 output "cloudfront_s3-admin-front_domain" {
   value = module.s3-admin-front.cloudfront_domain
 }
-
-output "cloudfront_s3-mobile-front_domain" {
-  value = module.s3-mobile-front.cloudfront_domain
-}
